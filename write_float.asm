@@ -31,66 +31,75 @@
             .word   0x00000000
 
 //--------------------- .nv.info.write_float      --------------------------
-.section        .nv.info.write_float,"",@"SHT_CUDA_INFO"
+        .section        .nv.info.write_float,"",@"SHT_CUDA_INFO"
         .sectionflags   @""
         .align  4
 
+
         //----- nvinfo : EIATTR_CUDA_API_VERSION
-        .align 4
-            .byte   0x04, 0x37
-            .short  4
-        .align 4
-            .word   0x0000007e
+        .align          4
+        .byte   0x04, 0x37
+        .short  (.L_7 - .L_6)
+.L_6:
+        .word   0x0000007e
+
 
         //----- nvinfo : EIATTR_PARAM_CBANK
-        .align 4
-            .byte   0x04, 0x0a
-            .short  8
-        .align 4
-            .word   index@(.nv.constant0.write_float)
-            .short  0x0160
-            .short  0x0010
+        .align          4
+.L_7:
+        .byte   0x04, 0x0a
+        .short  (.L_9 - .L_8)
+        .align          4
+.L_8:
+        .word   index@(.nv.constant0.write_float)
+        .short  0x0160
+        .short  0x0010
+
 
         //----- nvinfo : EIATTR_CBANK_PARAM_SIZE
-        .align 4
-            .byte   0x03, 0x19
-            .short  0x0010
+        .align          4
+.L_9:
+        .byte   0x03, 0x19
+        .short  0x0010
 
 
         //----- nvinfo : EIATTR_KPARAM_INFO
-        .align 4
-            .byte   0x04, 0x17
-            .short  12
-        .align 4
-           .word   0x00000000
-           .short  0x0001
-           .short  0x0008
-           .byte   0x00, 0xf0, 0x21, 0x00
+        .align          4
+        .byte   0x04, 0x17
+        .short  (.L_11 - .L_10)
+.L_10:
+        .word   0x00000000
+        .short  0x0001
+        .short  0x0008
+        .byte   0x00, 0xf0, 0x21, 0x00
 
 
         //----- nvinfo : EIATTR_KPARAM_INFO
-        .align 4
-            .byte   0x04, 0x17
-            .short  12
-        .align 4
-            .word   0x00000000
-            .short  0x0000
-            .short  0x0000
-            .byte   0x00, 0xf0, 0x21, 0x00
+        .align          4
+.L_11:
+        .byte   0x04, 0x17
+        .short  (.L_13 - .L_12)
+.L_12:
+        .word   0x00000000
+        .short  0x0000
+        .short  0x0000
+        .byte   0x00, 0xf0, 0x21, 0x00
 
 
         //----- nvinfo : EIATTR_MAXREG_COUNT
-        .align 4
-            .byte   0x03, 0x1b
-            .short  0x00ff
+        .align          4
+.L_13:
+        .byte   0x03, 0x1b
+        .short  0x00ff
 
 
         //----- nvinfo : EIATTR_EXIT_INSTR_OFFSETS
-        .align 4
-            .byte   0x04, 0x1c
-            .short  4
-        .align 4
-            .word   0x00000080
+        .align          4
+        .byte   0x04, 0x1c
+        .short  (.L_15 - .L_14)
+.L_14:
+        .word   0x00000080
+.L_15:
 
 
 //--------------------- .nv.callgraph             --------------------------

@@ -10,6 +10,7 @@
 #include "asm_parser.h"
 #include "cuelf.h"
 #include "patch_elf.h"
+#include "tinyscript.h"
 
 std::string sanitize(const std::string& line)
 {
@@ -124,6 +125,219 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
     std::unordered_map<std::string, ELFIO::section*> info_sections{};
 
     std::vector<AsmLabel> labels;
+
+    // read labels in first pass
+    uint64_t curr_addr = 0;
+    while (true)
+    {
+        bool is_eof = !std::getline(stream, line);
+        line_nr++;
+
+        if (is_eof)
+        {
+            break;
+        }
+
+        {
+            if (line.empty())
+            {
+                continue;
+            }
+
+            for (size_t i = 0; i < line.size() - 1; i++)
+            {
+                // strip everything after comment identifiers
+                if (line[i] == '/' && line[i + 1] == '/' || line[i] == ';')
+                {
+                    line = line.substr(0, i);
+                    break;
+                }
+
+                // strip everything between /* and */
+                if (line[i] == '/' && line[i + 1] == '*')
+                {
+                    if (size_t end_comment = line.find("*/", i + 2); end_comment != std::string::npos)
+                    {
+                        line = line.substr(0, i) + line.substr(end_comment + 2);
+                        i--;
+                    }
+                    else
+                    {
+                        COMPILER_ASSERT(false, "Unclosed comment", file_name, line, line_nr, i);
+                    }
+                }
+            }
+
+            // ignore empty lines
+            if (line.empty())
+            {
+                continue;
+            }
+
+            line = sanitize(line);
+
+            if (line.empty())
+            {
+                continue;
+            }
+
+            for (size_t i = 0; i < line.size() - 1; i++)
+            {
+                if ((line[i] == '`' && line[i + 1] == '(') ||
+                    // paren is only evaluated for labels on .byte, .short, .word directives
+                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0) && line[i] != '@'
+                        && line[i + 1] == '('))
+                {
+                    // find closing parenthesis
+                    size_t end_expr = line.find(')', i + 2);
+                    COMPILER_ASSERT(end_expr != std::string::npos, "Unclosed label expression", file_name, line,
+                                    line_nr,
+                                    i);
+                    line = line.substr(0, i + 1) + "1" + line.substr(end_expr + 1); // dummy value
+                }
+            }
+        }
+
+        std::string identifier;
+        int col_nr = 0;
+        identifier = expect_directive_or_label_or_inst(file_name, line, line_nr, col_nr);
+
+        if (identifier == ".section")
+        {
+            curr_addr = 0;
+        }
+        else if (identifier == ".byte")
+        {
+            // expect space
+            expect_space(file_name, line, line_nr, col_nr);
+
+            // expect an arbitrary number of int literals separated by commas
+            while (col_nr < line.size())
+            {
+                auto byte = expect_uint_literal(line, col_nr);
+                COMPILER_ASSERT(byte.has_value(), "expected uint literal after .byte directive", file_name, line,
+                                line_nr, col_nr);
+                COMPILER_ASSERT(byte.value() <= 0xFF, "byte value must be in range 0-255", file_name, line, line_nr,
+                                col_nr);
+                curr_addr++;
+
+
+                if (line[col_nr] == ',')
+                {
+                    col_nr++;
+                    // expect space
+                    expect_space(file_name, line, line_nr, col_nr);
+                    continue;
+                }
+                break;
+            }
+        }
+        else if (identifier == ".short")
+        {
+            // expect space
+            expect_space(file_name, line, line_nr, col_nr);
+
+            // expect an arbitrary number of int literals separated by commas
+            while (col_nr < line.size())
+            {
+                auto short_literal = expect_uint_literal(line, col_nr);
+                COMPILER_ASSERT(short_literal.has_value(), "expected uint literal after .short directive",
+                                file_name, line,
+                                line_nr, col_nr);
+                COMPILER_ASSERT(short_literal.value() <= 0xFFFF, ".short value must be in range 0-65535", file_name,
+                                line,
+                                line_nr, col_nr);
+                curr_addr += 2;
+
+                if (line[col_nr] == ',')
+                {
+                    col_nr++;
+                    // expect space
+                    expect_space(file_name, line, line_nr, col_nr);
+                    continue;
+                }
+                break;
+            }
+        }
+        else if (identifier == ".word")
+        {
+            // expect space
+            expect_space(file_name, line, line_nr, col_nr);
+
+            // expect an arbitrary number of int literals separated by commas
+            while (col_nr < line.size())
+            {
+                // check if "index@" is the next literal, treat as a section index literal
+                if (line[col_nr] == 'i')
+                {
+                    auto idx_literal = expect_identifier(line, col_nr);
+                    COMPILER_ASSERT(idx_literal == "index",
+                                    "expected index after .word directive, use index@ to reference a section index",
+                                    file_name, line, line_nr, col_nr);
+                    // expect @
+                    COMPILER_ASSERT(line[col_nr] == '@', "expected @ after index in .word directive", file_name,
+                                    line,
+                                    line_nr, col_nr);
+                    col_nr++;
+
+                    // expect parenthesis
+                    COMPILER_ASSERT(line[col_nr] == '(', "expected parenthesis after @ in .word directive",
+                                    file_name,
+                                    line, line_nr, col_nr);
+                    col_nr++;
+
+                    auto symbol_name = expect_identifier(line, col_nr);
+
+                    COMPILER_ASSERT(!symbol_name.empty(), "expected symbol name after ( in .word directive", file_name,
+                                    line, line_nr, col_nr);
+
+                    curr_addr += 4;
+
+                    // expect closing parenthesis
+                    COMPILER_ASSERT(line[col_nr] == ')',
+                                    "expected closing parenthesis after symbol name in .word directive",
+                                    file_name, line, line_nr, col_nr);
+                    col_nr++;
+                }
+                else
+                {
+                    auto word = expect_uint_literal(line, col_nr);
+                    COMPILER_ASSERT(word.has_value(), "expected uint literal after .word directive", file_name,
+                                    line,
+                                    line_nr, col_nr);
+                    COMPILER_ASSERT(word.value() <= 0xFFFFFFFF, "word value must be in range 0-4294967295",
+                                    file_name,
+                                    line, line_nr, col_nr);
+                    curr_addr += 4;
+                }
+
+                if (line[col_nr] == ',')
+                {
+                    col_nr++;
+                    // expect space
+                    expect_space(file_name, line, line_nr, col_nr);
+                    continue;
+                }
+                break;
+            }
+        }
+        else if (identifier.back() == ':')
+        {
+            AsmLabel label{};
+            label.name = identifier.substr(0, identifier.size() - 1);
+            label.addr = curr_addr;
+            labels.push_back(label);
+        }
+        else if (identifier[0] != '.')
+        {
+            // is instruction
+            curr_addr += sizeof(SassInstructionDataSm89);
+        }
+    }
+
+    // actual parsing pass
+    stream = std::istringstream(sass_asm);
+    line_nr = 0;
     while (true)
     {
         bool is_eof = !std::getline(stream, line);
@@ -176,7 +390,10 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
             // resolve label expressions
             for (size_t i = 0; i < line.size() - 1; i++)
             {
-                if (line[i] == '`' && line[i + 1] == '(')
+                if ((line[i] == '`' && line[i + 1] == '(') ||
+                    // paren is only evaluated for labels on .byte, .short, .word directives
+                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0) && line[i] != '@'
+                        && line[i + 1] == '('))
                 {
                     // find closing parenthesis
                     size_t end_expr = line.find(')', i + 2);
@@ -185,18 +402,24 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                                     i);
 
                     std::string expression = line.substr(i + 2, end_expr - i - 2);
-                    // TODO: ALLOW BASIC ARITHMETIC OPERATIONS
 
                     for (auto& [name, addr] : labels)
                     {
-                        if (name == expression)
+                        // replace all occurrences of label expressions with their addresses
+                        while (true)
                         {
-                            std::string addr_str = std::to_string(addr);
-                            auto new_line = line.substr(0, i) + addr_str + line.substr(end_expr + 1);
-                            line = new_line;
-                            break;
+                            size_t label_expr_pos = expression.find(name);
+                            if (label_expr_pos == std::string::npos)
+                            {
+                                break;
+                            }
+                            expression.replace(label_expr_pos, name.size(), std::to_string(addr));
                         }
                     }
+                    // evaluate basic arithmetic expressions
+                    expression = std::to_string(tinyScriptEval(expression));
+
+                    line = line.substr(0, i + (line[i] == ' ' ? 1 : 0)) + expression + line.substr(end_expr + 1); // NOLINT(*-inefficient-string-concatenation)
                 }
             }
         }
@@ -1076,10 +1299,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
         }
         else if (identifier.back() == ':')
         {
-            AsmLabel label{};
-            label.name = identifier.substr(0, identifier.size() - 1);
-            label.addr = current_section->get_address() + current_section->get_size();
-            labels.push_back(label);
+            // labels are already handled in the first pass
         }
         else if (identifier[0] != '.')
         {
