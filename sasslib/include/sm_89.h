@@ -15,7 +15,7 @@ PACK(struct SassInstructionDataSm89 : SassInstructionData {
     uint64_t data[2];
     });
 
-#define COMMON_SCHED_INFO() uint8_t reuse{}; uint8_t b_mask{}; uint8_t w_bar = -1; uint8_t r_bar = - 1; uint8_t y = 0; uint8_t stall = -1;
+#define COMMON_SCHED_INFO() uint8_t reuse{}; uint8_t b_mask{}; uint8_t w_bar = -1; uint8_t r_bar = -1; uint8_t y{}; uint8_t stall{};
 
 static_assert(sizeof(SassInstructionDataSm89) == 16, "Invalid size for SerializedInstruction");
 
@@ -149,7 +149,7 @@ struct ExitSm89 final : SassInstruction
     uint16_t p = -1; // predicate
     bool p_negate = false; // predicate negate (@!PN distilled)
 
-    uint8_t reuse{}; uint8_t b_mask{}; uint8_t w_bar = -1; uint8_t r_bar = - 1; uint8_t y = 1; uint8_t stall = 5;
+    COMMON_SCHED_INFO();
 
     void serialize(SassInstructionData& dst_buf) override;
 

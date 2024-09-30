@@ -1096,7 +1096,6 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                 expect_space(file_name, line, line_nr, col_nr); // expect space after instruction mnemonic
 
                 MovRegBankSm89 inst{};
-                inst.y = 1; // TODO: DEBUG ONLY
 
                 // RN
                 uint32_t register_ident = expect_register_identifier(file_name, line, line_nr, col_nr); // expect RN
