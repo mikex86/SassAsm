@@ -293,18 +293,10 @@ std::optional<uint64_t> expect_uint_literal(const std::string& line, int& col_nr
     return literal.empty() ? std::nullopt : std::optional(std::stoull(literal, nullptr, is_hex ? 16 : 10));
 }
 
-std::optional<SpecialRegisterExpression> expect_special_register(const std::string& line, int& col_nr)
+SpecialRegisterExpression expect_special_register(const std::string& line, int& col_nr)
 {
     // expect identifier
-    std::string identifier = expect_identifier(line, col_nr);
-
-    // if we are at a . character, we expect a suffix
-    if (col_nr < line.size() && line[col_nr] == '.')
-    {
-        col_nr++;
-        const std::string suffix = expect_identifier(line, col_nr);
-        identifier += "." + suffix;
-    }
+    const std::string identifier = expect_identifier(line, col_nr);
 
     // check if identifier is a special register
     if (const auto it = asm_literal_to_sr.find(identifier); it != asm_literal_to_sr.end())
@@ -312,7 +304,7 @@ std::optional<SpecialRegisterExpression> expect_special_register(const std::stri
         return it->second;
     }
 
-    return std::nullopt;
+    COMPILER_ASSERT(false, "Unknown special register", "", line, 0, col_nr - identifier.size());
 }
 
 void expect_space(const std::string& file_name, const std::string& line, const int line_nr, int& col_nr)

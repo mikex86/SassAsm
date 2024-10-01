@@ -1414,7 +1414,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                         else
                         {
                             COMPILER_ASSERT(false, "Unknown qualifier for IMAD instruction", file_name, line, line_nr,
-                                            col_nr);
+                                            col_nr - identifier.size());
                         }
 
                         // expect first register (dst)
@@ -1599,7 +1599,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                                 COMPILER_ASSERT(
                                     false,
                                     "Unknown qualifier for LDG instruction",
-                                    file_name, line, line_nr, col_nr);
+                                    file_name, line, line_nr, col_nr - qualifier.size());
                             }
                         }
                     }
@@ -1647,7 +1647,6 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                 if (identifier[3] == '.')
                 {
                     size_t i = 4;
-
                     while (i < identifier.size())
                     {
                         std::string qualifier{};
@@ -1656,6 +1655,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                             qualifier += identifier[i];
                             i++;
                         }
+                        i++;
 
                         // check qualifier
                         {
@@ -1713,8 +1713,8 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                             {
                                 COMPILER_ASSERT(
                                     false,
-                                    "Unknown qualifier for LDG instruction",
-                                    file_name, line, line_nr, col_nr);
+                                    "Unknown qualifier for STG instruction",
+                                    file_name, line, line_nr, col_nr - qualifier.size());
                             }
                         }
                     }
@@ -1807,6 +1807,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                 COMPILER_ASSERT(false, "Unknown instruction mnemonic", file_name, line, line_nr,
                                 col_nr - identifier.size());
             }
+
             // expect_statement_end(file_name, line, line_nr, col_nr);
 
             current_section->append_data(reinterpret_cast<const char*>(data.data), sizeof(data));

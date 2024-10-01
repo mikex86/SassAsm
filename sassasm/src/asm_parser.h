@@ -70,7 +70,7 @@ FusedRegisterOffsetExpr expect_fused_register_offset_expr(const std::string& fil
 
 std::optional<uint64_t> expect_uint_literal(const std::string& line, int& col_nr);
 
-std::optional<SpecialRegisterExpression> expect_special_register(const std::string& line, int& col_nr);
+SpecialRegisterExpression expect_special_register(const std::string& line, int& col_nr);
 
 void expect_space(const std::string& file_name, const std::string& line, int line_nr, int& col_nr);
 
