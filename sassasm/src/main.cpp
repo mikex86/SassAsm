@@ -1760,9 +1760,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
 
                 // SR_...
                 auto special_register = expect_special_register(line, col_nr);
-                COMPILER_ASSERT(special_register.has_value(), "Unknown special register", file_name, line, line_nr,
-                                col_nr);
-                inst.src = special_register.value();
+                inst.src = special_register;
 
                 inst.serialize(data);
             }
