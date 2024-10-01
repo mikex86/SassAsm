@@ -88,7 +88,7 @@ enum class ModeSm89 // TODO: Don't have a better name for this right now...
     EF = 0, NONE = 1, EL = 2, LU = 3, EU = 4, NA = 5
 };
 
-// @(!)PN LDG.(E.)({EL, EF, ...})(.{U8, ...} if dtype != U32) (P_DST if P_DST != 7), R_DST, [ R_SRC.{32, 64} + (R_OFF if no_ur == false) + (IMM_OFF if IMM_OFF != 0) ]
+// @(!)PN LDG.(E.)({EL, EF, ...})(.{U8, ...} if dtype != U32) (P_DST if P_DST != 7), R_DST, [ R_SRC.{32, 64} + (R_OFF if no_regoffcalc == false) + (IMM_OFF if IMM_OFF != 0) ]
 struct LdgUrSm89 final : SassInstruction
 {
     uint8_t pred_dst = -1; // P_DST ; -1 == 7 due to bit trunc.
@@ -98,7 +98,7 @@ struct LdgUrSm89 final : SassInstruction
     uint8_t dst; // R_DST
     bool src_is64bit;
 
-    bool no_ur; // disables the addition of R_OFF
+    bool no_regoffcalc; // disables the addition of R_OFF
 
     bool is_e; // controls presence of .E
     DtypeSm89 dtype = DtypeSm89::U32; // .U8, S8... ; U32 is default and implicit in mnemonic
@@ -115,7 +115,7 @@ struct LdgUrSm89 final : SassInstruction
     ~LdgUrSm89() override;
 };
 
-// @(!)PN STG.(E.)({EL, EF, ...})(.{U8, ...} if dtype != U32) [ R_DST.64 + (R_OFF if no_ur == false) + (IMM_OFF if IMM_OFF != 0) ], R_SRC
+// @(!)PN STG.(E.)({EL, EF, ...})(.{U8, ...} if dtype != U32) [ R_DST.64 + (R_OFF if no_regoffcalc == false) + (IMM_OFF if IMM_OFF != 0) ], R_SRC
 struct StgUrSm89 final : SassInstruction
 {
     uint8_t dst; // R_DST
@@ -125,7 +125,7 @@ struct StgUrSm89 final : SassInstruction
 
     bool dst_is64bit = true; // false is illegal here because dst must be an address...
 
-    bool no_ur; // disables the addition of R_OFF
+    bool no_regoffcalc; // disables the addition of R_OFF
 
     bool is_e; // controls presence of .E
     DtypeSm89 dtype = DtypeSm89::U32; // .U8, S8... ; U32 is default and implicit in mnemonic
@@ -140,6 +140,22 @@ struct StgUrSm89 final : SassInstruction
     void serialize(SassInstructionData& dst_buf) override;
 
     ~StgUrSm89() override;
+};
+
+// @(!)PN S2R R_DST, SRC_SR
+struct S2rSm89 final : SassInstruction
+{
+    uint8_t dst; // R_DST
+    uint8_t src; // SRC_SR
+
+    uint16_t p = -1; // predicate
+    bool p_negate = false; // predicate negate (@!PN distilled)
+
+    COMMON_SCHED_INFO();
+
+    void serialize(SassInstructionData& dst_buf) override;
+
+    ~S2rSm89() override;
 };
 
 

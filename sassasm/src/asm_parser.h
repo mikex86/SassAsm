@@ -6,6 +6,8 @@
 #include <string>
 #include <cstdint>
 
+#include "special_registers.h"
+
 /**
  * Asserts a condition and aborts the assembler with a detailed error message if the condition is false.
  */
@@ -51,7 +53,11 @@ struct ConstantLoadExpr
 ConstantLoadExpr expect_constant_load_expr(const std::string& file_name, const std::string& line, int line_nr,
                                            int& col_nr);
 
-struct UrExpr
+/**
+ * A fused register offset expression is an expression of the form [REG_BASE + REG_OFFSET + IMM_OFFSET], which expresses
+ * the computed result of this expression as a single operand to an instruction.
+ */
+struct FusedRegisterOffsetExpr
 {
     uint32_t base_register = -1;
     uint32_t offset_register = -1;
@@ -59,9 +65,12 @@ struct UrExpr
     bool base_reg_64_bit = false;
 };
 
-UrExpr expect_ur_expr(const std::string& file_name, const std::string& line, int line_nr, int& col_nr);
+FusedRegisterOffsetExpr expect_fused_register_offset_expr(const std::string& file_name, const std::string& line,
+                                                          int line_nr, int& col_nr);
 
 std::optional<uint64_t> expect_uint_literal(const std::string& line, int& col_nr);
+
+std::optional<SpecialRegisterExpression> expect_special_register(const std::string& line, int& col_nr);
 
 void expect_space(const std::string& file_name, const std::string& line, int line_nr, int& col_nr);
 

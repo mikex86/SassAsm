@@ -67,7 +67,11 @@ struct CurrentSectionState
 struct AsmLabel
 {
     std::string name;
-    ELFIO::Elf64_Addr addr;
+
+    /**
+     * Offset from current section start in bytes
+     */
+    ELFIO::Elf64_Addr section_offset;
 };
 
 /**
@@ -185,7 +189,8 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
             {
                 if ((line[i] == '`' && line[i + 1] == '(') ||
                     // paren is only evaluated for labels on .byte, .short, .word directives
-                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0 || line.find(".size") == 0) && line[i] != '@'
+                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0 || line.
+                            find(".size") == 0) && line[i] != '@'
                         && line[i + 1] == '('))
                 {
                     // find closing parenthesis
@@ -193,7 +198,8 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                     COMPILER_ASSERT(end_expr != std::string::npos, "Unclosed label expression", file_name, line,
                                     line_nr,
                                     i);
-                    line = line.substr(0, i + (line[i] == '`' ? 0 : 1)) + "1" + line.substr(end_expr + 1); // dummy value
+                    line = line.substr(0, i + (line[i] == '`' ? 0 : 1)) + "1" + line.substr(end_expr + 1);
+                    // dummy value
                 }
             }
         }
@@ -348,7 +354,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
         {
             AsmLabel label{};
             label.name = identifier.substr(0, identifier.size() - 1);
-            label.addr = curr_addr;
+            label.section_offset = curr_addr;
             labels.push_back(label);
         }
         else if (identifier[0] != '.')
@@ -415,7 +421,8 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
             {
                 if ((line[i] == '`' && line[i + 1] == '(') ||
                     // paren is only evaluated for labels on .byte, .short, .word directives
-                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0 || line.find(".size") == 0) && line[i] != '@'
+                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0 || line.
+                            find(".size") == 0) && line[i] != '@'
                         && line[i + 1] == '('))
                 {
                     // find closing parenthesis
@@ -1612,7 +1619,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
 
                 // expect src ur expression
                 auto [base_register, offset_register, offset_imm, base_reg_64_bit]
-                    = expect_ur_expr(file_name, line, line_nr, col_nr);
+                    = expect_fused_register_offset_expr(file_name, line, line_nr, col_nr);
                 inst.src = base_register;
                 if (offset_register != -1)
                 {
@@ -1621,7 +1628,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                 inst.src_offimm = offset_imm;
                 if (offset_register == -1 && offset_imm == 0)
                 {
-                    inst.no_ur = true;
+                    inst.no_regoffcalc = true;
                 }
                 inst.src_is64bit = base_reg_64_bit;
 
@@ -1715,7 +1722,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
 
                 // expect dst ur expression
                 auto [base_register, offset_register, offset_imm, base_reg_64_bit]
-                    = expect_ur_expr(file_name, line, line_nr, col_nr);
+                    = expect_fused_register_offset_expr(file_name, line, line_nr, col_nr);
                 inst.dst = base_register;
                 if (offset_register != -1)
                 {
@@ -1724,14 +1731,38 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                 inst.dst_offimm = offset_imm;
                 if (offset_register == -1 && offset_imm == 0)
                 {
-                    inst.no_ur = true;
+                    inst.no_regoffcalc = true;
                 }
-                inst.dst_is64bit = base_reg_64_bit;
+                COMPILER_ASSERT(inst.dst_is64bit, "STG dst must be 64-bit, as it is an address", file_name, line,
+                                line_nr, col_nr);
 
                 // expect src register
                 expect_parameter_delimiter(file_name, line, line_nr, col_nr); // expect comma
                 uint32_t reg_src = expect_register_identifier(file_name, line, line_nr, col_nr);
                 inst.src = reg_src;
+
+                inst.serialize(data);
+            }
+            else if (identifier == "S2R")
+            {
+                S2rSm89 inst{};
+                if (inst_p != -1)
+                {
+                    inst.p = inst_p;
+                    inst.p_negate = inst_p_negate;
+                }
+                expect_space(file_name, line, line_nr, col_nr); // expect space after instruction mnemonic
+
+                // RN
+                uint32_t register_ident = expect_register_identifier(file_name, line, line_nr, col_nr); // expect RN
+                expect_parameter_delimiter(file_name, line, line_nr, col_nr); // expect comma
+                inst.dst = register_ident;
+
+                // SR_...
+                auto special_register = expect_special_register(line, col_nr);
+                COMPILER_ASSERT(special_register.has_value(), "Unknown special register", file_name, line, line_nr,
+                                col_nr);
+                inst.src = special_register.value();
 
                 inst.serialize(data);
             }
@@ -1773,9 +1804,10 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
             }
             else
             {
-                COMPILER_ASSERT(false, "Unknown instruction mnemonic", file_name, line, line_nr, col_nr - identifier.size());
+                COMPILER_ASSERT(false, "Unknown instruction mnemonic", file_name, line, line_nr,
+                                col_nr - identifier.size());
             }
-            expect_statement_end(file_name, line, line_nr, col_nr);
+            // expect_statement_end(file_name, line, line_nr, col_nr);
 
             current_section->append_data(reinterpret_cast<const char*>(data.data), sizeof(data));
         }

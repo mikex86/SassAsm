@@ -198,7 +198,7 @@ ConstantLoadExpr expect_constant_load_expr(const std::string& file_name, const s
     };
 }
 
-UrExpr expect_ur_expr(const std::string& file_name, const std::string& line, const int line_nr, int& col_nr)
+FusedRegisterOffsetExpr expect_fused_register_offset_expr(const std::string& file_name, const std::string& line, const int line_nr, int& col_nr)
 {
     // Expect '['
     COMPILER_ASSERT(line[col_nr] == '[', "expected '[' in constant load expression", file_name, line, line_nr, col_nr);
@@ -254,7 +254,7 @@ UrExpr expect_ur_expr(const std::string& file_name, const std::string& line, con
     COMPILER_ASSERT(line[col_nr] == ']', "expected ']' in UR expression", file_name, line, line_nr, col_nr);
     col_nr++;
 
-    return UrExpr{
+    return FusedRegisterOffsetExpr{
         .base_register = base_register,
         .offset_register = offset_reg,
         .offset_imm = offset_imm,
@@ -291,6 +291,28 @@ std::optional<uint64_t> expect_uint_literal(const std::string& line, int& col_nr
         col_nr++;
     }
     return literal.empty() ? std::nullopt : std::optional(std::stoull(literal, nullptr, is_hex ? 16 : 10));
+}
+
+std::optional<SpecialRegisterExpression> expect_special_register(const std::string& line, int& col_nr)
+{
+    // expect identifier
+    std::string identifier = expect_identifier(line, col_nr);
+
+    // if we are at a . character, we expect a suffix
+    if (col_nr < line.size() && line[col_nr] == '.')
+    {
+        col_nr++;
+        const std::string suffix = expect_identifier(line, col_nr);
+        identifier += "." + suffix;
+    }
+
+    // check if identifier is a special register
+    if (const auto it = asm_literal_to_sr.find(identifier); it != asm_literal_to_sr.end())
+    {
+        return it->second;
+    }
+
+    return std::nullopt;
 }
 
 void expect_space(const std::string& file_name, const std::string& line, const int line_nr, int& col_nr)

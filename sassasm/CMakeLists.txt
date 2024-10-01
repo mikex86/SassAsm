@@ -9,6 +9,7 @@ add_executable(sassasm src/main.cpp
         src/patch_elf.cpp
         src/patch_elf.h
         src/tinyscript.cpp
-        src/tinyscript.h)
+        src/tinyscript.h
+        src/special_registers.h)
 
 target_link_libraries(sassasm PRIVATE sasslib elfio::elfio)

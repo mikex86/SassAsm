@@ -121,7 +121,7 @@ void LdgUrSm89::serialize(SassInstructionData& dst_buf)
     writer.writeBits(p_negate, 15, 1);
     writer.writeBits(encode_sched_info(reuse, b_mask, w_bar, r_bar, y, stall), 105, 21);
 
-    writer.writeBits(no_ur, 76, 1);
+    writer.writeBits(no_regoffcalc, 76, 1);
 
     // random fuzzed constants
     writer.writeBits(0x1, 0, 5);
@@ -152,7 +152,7 @@ void StgUrSm89::serialize(SassInstructionData& dst_buf)
     writer.writeBits(p_negate, 15, 1);
     writer.writeBits(encode_sched_info(reuse, b_mask, w_bar, r_bar, y, stall), 105, 21);
 
-    writer.writeBits(no_ur, 76, 1);
+    writer.writeBits(no_regoffcalc, 76, 1);
 
     // random fuzzed constants
     writer.writeBits(0x6, 0, 5);
@@ -163,6 +163,29 @@ void StgUrSm89::serialize(SassInstructionData& dst_buf)
 }
 
 StgUrSm89::~StgUrSm89() = default;
+
+void S2rSm89::serialize(SassInstructionData& dst_buf)
+{
+    const BitWriter writer(&dst_buf);
+
+    // common
+    writer.writeBits(p, 12, 3);
+    writer.writeBits(p_negate, 15, 1);
+    writer.writeBits(encode_sched_info(reuse, b_mask, w_bar, r_bar, y, stall), 105, 21);
+
+    writer.writeBits(dst, 16, 8);
+
+    writer.writeBits(src, 72, 8);
+
+    // random fuzzed constants
+    writer.writeBits(0x4, 9, 3);
+    writer.writeBits(0x1, 8, 1);
+    writer.writeBits(0x0, 5, 3);
+    writer.writeBits(0x19, 0, 5);
+}
+
+S2rSm89::~S2rSm89() = default;
+
 
 void ExitSm89::serialize(SassInstructionData& dst_buf)
 {
