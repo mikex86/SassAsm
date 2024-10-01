@@ -1541,6 +1541,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                             qualifier += identifier[i];
                             i++;
                         }
+                        i++;
 
                         // check qualifier
                         {
