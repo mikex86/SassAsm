@@ -1600,7 +1600,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                                 COMPILER_ASSERT(
                                     false,
                                     "Unknown qualifier for LDG instruction",
-                                    file_name, line, line_nr, col_nr - qualifier.size());
+                                    file_name, line, line_nr, col_nr - qualifier.size() - 1);
                             }
                         }
                     }
@@ -1715,7 +1715,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                                 COMPILER_ASSERT(
                                     false,
                                     "Unknown qualifier for STG instruction",
-                                    file_name, line, line_nr, col_nr - qualifier.size());
+                                    file_name, line, line_nr, col_nr - qualifier.size() - 1);
                             }
                         }
                     }
