@@ -65,6 +65,6 @@ std::optional<uint64_t> expect_uint_literal(const std::string& line, int& col_nr
 
 void expect_space(const std::string& file_name, const std::string& line, int line_nr, int& col_nr);
 
-void expect_statement_end(const std::string& file_name, const std::string& line, int line_nr, int col_nr);
+void expect_statement_end(const std::string& file_name, const std::string& line, int line_nr, int& col_nr);
 
 #endif //ASM_PARSER_H

@@ -185,7 +185,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
             {
                 if ((line[i] == '`' && line[i + 1] == '(') ||
                     // paren is only evaluated for labels on .byte, .short, .word directives
-                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0) && line[i] != '@'
+                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0 || line.find(".size") == 0) && line[i] != '@'
                         && line[i + 1] == '('))
                 {
                     // find closing parenthesis
@@ -193,13 +193,36 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                     COMPILER_ASSERT(end_expr != std::string::npos, "Unclosed label expression", file_name, line,
                                     line_nr,
                                     i);
-                    line = line.substr(0, i + 1) + "1" + line.substr(end_expr + 1); // dummy value
+                    line = line.substr(0, i + (line[i] == '`' ? 0 : 1)) + "1" + line.substr(end_expr + 1); // dummy value
                 }
             }
         }
 
-        std::string identifier;
         int col_nr = 0;
+
+        // check if next character is @, if so, handle p
+        if (line[col_nr] == '@')
+        {
+            col_nr++;
+
+            // optionally expect ! for p_negate
+            if (line[col_nr] == '!')
+            {
+                col_nr++;
+            }
+
+            // Expect P
+            COMPILER_ASSERT(line[col_nr] == 'P', "expected P after @ in instruction", file_name, line, line_nr, col_nr);
+            col_nr++;
+
+            auto p = expect_uint_literal(line, col_nr);
+            COMPILER_ASSERT(p.has_value(), "expected uint literal after @ in instruction", file_name, line, line_nr,
+                            col_nr);
+
+            expect_space(file_name, line, line_nr, col_nr);
+        }
+
+        std::string identifier;
         identifier = expect_directive_or_label_or_inst(file_name, line, line_nr, col_nr);
 
         if (identifier == ".section")
@@ -392,7 +415,7 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
             {
                 if ((line[i] == '`' && line[i + 1] == '(') ||
                     // paren is only evaluated for labels on .byte, .short, .word directives
-                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0) && line[i] != '@'
+                    ((line.find(".byte") == 0 || line.find(".short") == 0 || line.find(".word") == 0 || line.find(".size") == 0) && line[i] != '@'
                         && line[i + 1] == '('))
                 {
                     // find closing parenthesis
@@ -419,12 +442,37 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                     // evaluate basic arithmetic expressions
                     expression = std::to_string(tinyScriptEval(expression));
 
-                    line = line.substr(0, i + (line[i] == ' ' ? 1 : 0)) + expression + line.substr(end_expr + 1); // NOLINT(*-inefficient-string-concatenation)
+                    line = line.substr(0, i + (line[i] == '`' ? 0 : 1)) + expression + line.substr(end_expr + 1);
                 }
             }
         }
 
         int col_nr = 0;
+
+        uint64_t inst_p = -1; // instruction p value
+        bool inst_p_negate = false; // instruction p negate
+
+        // check if next character is @, if so, handle p
+        if (line[col_nr] == '@')
+        {
+            col_nr++;
+
+            // optionally expect ! for p_negate
+            if (line[col_nr] == '!')
+            {
+                inst_p_negate = true;
+                col_nr++;
+            }
+
+            // Expect P
+            COMPILER_ASSERT(line[col_nr] == 'P', "expected P after @ in instruction", file_name, line, line_nr, col_nr);
+            col_nr++;
+
+            auto p = expect_uint_literal(line, col_nr);
+            COMPILER_ASSERT(p.has_value(), "expected uint literal after @ in instruction", file_name, line, line_nr,
+                            col_nr);
+            inst_p = p.value();
+        }
 
         std::string identifier;
         if (!is_eof)
@@ -1316,6 +1364,11 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                 expect_space(file_name, line, line_nr, col_nr); // expect space after instruction mnemonic
 
                 MovRegBankSm89 inst{};
+                if (inst_p != -1)
+                {
+                    inst.p = inst_p;
+                    inst.p_negate = inst_p_negate;
+                }
 
                 // RN
                 uint32_t register_ident = expect_register_identifier(file_name, line, line_nr, col_nr); // expect RN
@@ -1333,6 +1386,11 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                 expect_space(file_name, line, line_nr, col_nr); // expect space after instruction mnemonic
 
                 ImadU32Sm89 inst{};
+                if (inst_p != -1)
+                {
+                    inst.p = inst_p;
+                    inst.p_negate = inst_p_negate;
+                }
                 if (identifier[4] == '.')
                 {
                     if (identifier.size() >= 8)
@@ -1394,6 +1452,10 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
             {
                 expect_space(file_name, line, line_nr, col_nr); // expect space after instruction mnemonic
                 UldcRegBankSm89 inst{};
+                if (inst_p != -1)
+                {
+                    inst.up = inst_p;
+                }
                 if (identifier[4] == '.')
                 {
                     if (identifier.size() >= 7)
@@ -1455,7 +1517,11 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                 expect_space(file_name, line, line_nr, col_nr); // expect space after instruction mnemonic
 
                 LdgUrSm89 inst{};
-
+                if (inst_p != -1)
+                {
+                    inst.p = inst_p;
+                    inst.p_negate = inst_p_negate;
+                }
                 if (identifier[3] == '.')
                 {
                     size_t i = 4;
@@ -1566,6 +1632,11 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
                 expect_space(file_name, line, line_nr, col_nr); // expect space after instruction mnemonic
 
                 StgUrSm89 inst{};
+                if (inst_p != -1)
+                {
+                    inst.p = inst_p;
+                    inst.p_negate = inst_p_negate;
+                }
                 if (identifier[3] == '.')
                 {
                     size_t i = 4;
@@ -1667,6 +1738,11 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
             else if (identifier == "BRA")
             {
                 BraSm89 inst{};
+                if (inst_p != -1)
+                {
+                    inst.p = inst_p;
+                    inst.p_negate = inst_p_negate;
+                }
                 expect_space(file_name, line, line_nr, col_nr); // expect space after instruction mnemonic
 
                 // expect address literal
@@ -1678,16 +1754,26 @@ void assemble_file(const std::string& file_name, const std::string& sass_asm, co
             else if (identifier == "EXIT")
             {
                 ExitSm89 inst{};
+                if (inst_p != -1)
+                {
+                    inst.p = inst_p;
+                    inst.p_negate = inst_p_negate;
+                }
                 inst.serialize(data);
             }
             else if (identifier == "NOP")
             {
                 NopSm89 inst{};
+                if (inst_p != -1)
+                {
+                    inst.p = inst_p;
+                    inst.p_negate = inst_p_negate;
+                }
                 inst.serialize(data);
             }
             else
             {
-                COMPILER_ASSERT(false, "Unknown instruction mnemonic", file_name, line, line_nr, col_nr);
+                COMPILER_ASSERT(false, "Unknown instruction mnemonic", file_name, line, line_nr, col_nr - identifier.size());
             }
             expect_statement_end(file_name, line, line_nr, col_nr);
 

@@ -95,7 +95,7 @@ std::string expect_directive_or_label_or_inst(const std::string& file_name, cons
     }
 
     // else we have an instruction
-    COMPILER_ASSERT(col_nr == line.size() || line[col_nr] == ' ', "expected space after instruction mnemonic",
+    COMPILER_ASSERT(col_nr == line.size() || line[col_nr] == ' ' || line[col_nr] == ';', "expected space/semi colon after instruction mnemonic",
                     file_name, line, line_nr, col_nr);
     return identifier;
 }
@@ -305,7 +305,7 @@ void expect_space(const std::string& file_name, const std::string& line, const i
     COMPILER_ASSERT(at_least_one_space, "expected space", file_name, line, line_nr, col_nr);
 }
 
-void expect_statement_end(const std::string& file_name, const std::string& line, const int line_nr, int col_nr)
+void expect_statement_end(const std::string& file_name, const std::string& line, const int line_nr, int &col_nr)
 {
     // expect an arbitrary number of white characters
     while (col_nr < line.size() && std::isspace(line[col_nr]))
